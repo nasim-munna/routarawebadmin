@@ -579,6 +579,57 @@ function distributionRoute(method: string, path: string, query: URLSearchParams,
     payments.push({ distributor, outlet: Number(body.outlet), amount: Number(body.amount) });
     return ok(dues(distributor), "Payment recorded.");
   }
+  if (path === "/reports/sales") {
+    const group = query.get("group") ?? "rep";
+    const live = store.orders.filter((order) => order.status === "SUBMITTED");
+    const name = (order: Row) => (group === "outlet" ? order.outletName : group === "distributor" ? order.distributorName : group === "territory" ? "Dhaka Central" : order.employeeName);
+    const totals = new Map<string, { key: number; name: unknown; orders: number; units?: number; deliveredUnits?: number; ordered: number; delivered: number }>();
+    for (const order of live) {
+      const sent = docs.deliveries.find((row) => row.order === order.id);
+      if (group === "product") {
+        for (const line of order.lines as Row[]) {
+          const entry = totals.get(String(line.productName)) ?? { key: line.product as number, name: line.productName, orders: 0, units: 0, deliveredUnits: 0, ordered: 0, delivered: 0 };
+          const out = (sent?.lines as Row[] | undefined)?.find((item) => item.product === line.product);
+          entry.orders += 1;
+          entry.units! += line.quantity as number;
+          entry.deliveredUnits! += (out?.quantity as number) ?? 0;
+          entry.ordered += Number(line.amount);
+          entry.delivered += Number(out?.amount ?? 0);
+          totals.set(String(line.productName), entry);
+        }
+      } else {
+        const entry = totals.get(String(name(order))) ?? { key: totals.size + 1, name: name(order), orders: 0, ordered: 0, delivered: 0 };
+        entry.orders += 1;
+        entry.ordered += Number(order.total);
+        entry.delivered += Number(sent?.total ?? 0);
+        totals.set(String(name(order)), entry);
+      }
+    }
+    const rows = [...totals.values()].map((row) => ({ ...row, ordered: row.ordered.toFixed(2), delivered: row.delivered.toFixed(2) }));
+    return ok({ from: query.get("from"), to: query.get("to"), group, rows });
+  }
+  if (path === "/reports/stock-summary") {
+    return ok(store.distributors.map((row) => {
+      const stock = [...levels(row.id)];
+      const value = stock.reduce((sum, [id, quantity]) => sum + Number(productOf(id).tradePrice ?? 0) * quantity, 0);
+      return { distributor: row.id, name: row.name, products: stock.filter(([, quantity]) => quantity > 0).length, units: stock.reduce((sum, [, quantity]) => sum + quantity, 0), value: value.toFixed(2) };
+    }));
+  }
+  if (path === "/reports/money-summary") {
+    return ok(store.distributors.map((row) => {
+      const total = (rows: Row[], field: string, status: string) => rows.filter((item) => item.distributor === row.id && item.status === status).reduce((sum, item) => sum + Number(item[field]), 0);
+      const received = total(docs["primary-invoices"], "total", "RECEIVED");
+      const deposits = total(docs.deposits, "amount", "CONFIRMED");
+      const claims = total(docs["damage-claims"], "total", "APPROVED");
+      const owing = dues(row.id);
+      const sold = owing.reduce((sum, item) => sum + Number(item.billed), 0);
+      const collected = owing.reduce((sum, item) => sum + Number(item.paid), 0);
+      return {
+        distributor: row.id, name: row.name, received: received.toFixed(2), deposits: deposits.toFixed(2), claims: claims.toFixed(2),
+        balance: (received - deposits - claims).toFixed(2), sold: sold.toFixed(2), collected: collected.toFixed(2), outletDue: (sold - collected).toFixed(2),
+      };
+    }));
+  }
   if (path === "/reports/order-vs-delivery") {
     const totals = new Map<string, Row>();
     for (const order of store.orders) {

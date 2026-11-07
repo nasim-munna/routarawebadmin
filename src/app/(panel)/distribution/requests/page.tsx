@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { type ChosenLine, LinesTable, ProductLines, StatusTag, toLines, useDistributor } from "@/components/distribution-ui";
+import { PrintButton } from "@/components/report-ui";
 import { PagedTable, usePagedList } from "@/components/setup-ui";
 import { Button, Dialog, ErrorNote, Field, Input, PageHeader } from "@/components/ui";
 import { post } from "@/lib/api";
@@ -96,10 +97,17 @@ function InvoiceDialog({ invoice, canReceive, onClose }: { invoice: PrimaryInvoi
   return (
     <Dialog title={invoice.number} onClose={onClose}>
       {receive.error && <ErrorNote error={receive.error} />}
-      <p className="mb-3 text-sm text-ink-2">
-        {invoice.distributorName} · {day(invoice.date)}
-      </p>
-      <LinesTable lines={invoice.lines} total={invoice.total} />
+      <div className="print-doc print:p-8">
+        <p className="mb-2 hidden font-display text-lg font-bold print:block">Company invoice {invoice.number}</p>
+        <p className="mb-3 text-sm text-ink-2">
+          {invoice.distributorName}
+          {invoice.distributorAddress && `, ${invoice.distributorAddress}`} · {day(invoice.date)}
+        </p>
+        <LinesTable lines={invoice.lines} total={invoice.total} />
+        <div className="mt-4 flex justify-end">
+          <PrintButton label="Print invoice" />
+        </div>
+      </div>
       {canReceive && invoice.status === "ISSUED" && (
         <div className="mt-4 flex items-center justify-between gap-3">
           <p className="text-sm text-ink-2">Stock goes up once this is marked received.</p>

@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Banknote, Boxes, CalendarCheck, ClipboardList, Footprints, CalendarDays, Goal, HandCoins, LayoutGrid, LogOut, MapPinned, MoreHorizontal, Network, PackageCheck, PackageOpen, PackageX, Route, Scale, Settings2, SlidersHorizontal, Store, Truck, Users, Warehouse } from "lucide-react";
+import { Banknote, BarChart3, Boxes, CalendarCheck, ClipboardList, Footprints, CalendarDays, Coins, Goal, HandCoins, LayoutGrid, LogOut, MapPinned, MoreHorizontal, Network, PackageCheck, PackageOpen, PackageX, Route, Scale, Settings2, SlidersHorizontal, Store, Truck, Users, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -29,6 +29,12 @@ export const distributionNav = [
   { href: "/distribution/dues", label: "Outlet dues", icon: HandCoins },
   { href: "/distribution/claims", label: "Damage claims", icon: PackageX },
   { href: "/distribution/fill-rate", label: "Order vs delivery", icon: Scale },
+];
+
+export const reportNav = [
+  { href: "/reports/sales", label: "Sales", icon: BarChart3 },
+  { href: "/reports/stock", label: "Stock value", icon: Warehouse },
+  { href: "/reports/money", label: "Money", icon: Coins },
 ];
 
 export const setupNav = [
@@ -111,6 +117,10 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           ))}
           {!operator && (
             <>
+              <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Reports</p>
+              {reportNav.map((item) => (
+                <SideLink key={item.href} {...item} active={isActive(item.href)} />
+              ))}
               <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Sales setup</p>
               {setupNav.map((item) => (
                 <SideLink key={item.href} {...item} active={isActive(item.href)} />

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import { useState } from "react";
 import { LinesTable, useDistributor } from "@/components/distribution-ui";
+import { PrintButton } from "@/components/report-ui";
 import { PagedTable, SearchBox, usePagedList } from "@/components/setup-ui";
 import { Button, Dialog, ErrorNote, Field, Input, PageHeader, Skeleton } from "@/components/ui";
 import { api, post } from "@/lib/api";
@@ -131,32 +132,51 @@ function InvoiceDialog({ delivery, onClose }: { delivery: Delivery; onClose: () 
   const due = Number(delivery.total) - Number(delivery.collected);
   return (
     <Dialog title={delivery.number} onClose={onClose}>
-      <p className="mb-3 text-sm text-ink-2">
-        {delivery.outletName} · {delivery.distributorName} · {day(delivery.date)}
-      </p>
-      <LinesTable lines={delivery.lines} />
-      <dl className="num mt-3 space-y-1 text-sm">
-        {Number(delivery.discountAmount) > 0 && (
+      <div className="print-doc print:p-8">
+        <div className="mb-4 grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="font-semibold">{delivery.distributorName}</p>
+            {delivery.distributorAddress && <p className="text-ink-2">{delivery.distributorAddress}</p>}
+            {delivery.distributorPhone && <p className="text-ink-2">{delivery.distributorPhone}</p>}
+          </div>
+          <div className="text-right">
+            <p className="hidden font-display text-lg font-bold print:block">Sales invoice {delivery.number}</p>
+            <p className="text-ink-2">{day(delivery.date)}</p>
+            <p className="font-semibold">{delivery.outletName}</p>
+            {delivery.outletAddress && <p className="text-ink-2">{delivery.outletAddress}</p>}
+          </div>
+        </div>
+        <LinesTable lines={delivery.lines} />
+        <dl className="num mt-3 space-y-1 text-sm">
+          {Number(delivery.discountAmount) > 0 && (
+            <div className="flex justify-between text-ink-2">
+              <dt>Discount</dt>
+              <dd>− {money(delivery.discountAmount)}</dd>
+            </div>
+          )}
+          <div className="flex justify-between font-semibold">
+            <dt>Total</dt>
+            <dd>{money(delivery.total)}</dd>
+          </div>
           <div className="flex justify-between text-ink-2">
-            <dt>Discount</dt>
-            <dd>− {money(delivery.discountAmount)}</dd>
+            <dt>Collected at delivery</dt>
+            <dd>{money(delivery.collected)}</dd>
           </div>
-        )}
-        <div className="flex justify-between font-semibold">
-          <dt>Total</dt>
-          <dd>{money(delivery.total)}</dd>
+          {due > 0 && (
+            <div className="flex justify-between font-semibold text-bad">
+              <dt>Not collected at delivery</dt>
+              <dd>{money(due)}</dd>
+            </div>
+          )}
+        </dl>
+        <div className="mt-16 hidden justify-between text-sm print:flex">
+          <span className="border-t border-line px-6 pt-1">Received by</span>
+          <span className="border-t border-line px-6 pt-1">Delivered by</span>
         </div>
-        <div className="flex justify-between text-ink-2">
-          <dt>Collected at delivery</dt>
-          <dd>{money(delivery.collected)}</dd>
+        <div className="mt-4 flex justify-end">
+          <PrintButton label="Print invoice" />
         </div>
-        {due > 0 && (
-          <div className="flex justify-between font-semibold text-bad">
-            <dt>Not collected at delivery</dt>
-            <dd>{money(due)}</dd>
-          </div>
-        )}
-      </dl>
+      </div>
     </Dialog>
   );
 }

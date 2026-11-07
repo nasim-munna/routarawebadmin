@@ -243,6 +243,7 @@ export type PrimaryInvoice = {
   number: string;
   distributor: number;
   distributorName: string;
+  distributorAddress?: string;
   date: string;
   status: "ISSUED" | "RECEIVED";
   total: string;
@@ -266,8 +267,11 @@ export type Delivery = {
   order: number;
   outlet: number;
   outletName: string;
+  outletAddress?: string;
   distributor: number;
   distributorName: string;
+  distributorAddress?: string;
+  distributorPhone?: string;
   date: string;
   grossTotal: string;
   discountAmount: string;
@@ -324,4 +328,31 @@ export type FillRow = {
   orderedValue: string;
   deliveredValue: string;
   fillPercent: number;
+};
+
+export type SalesRow = {
+  key: number;
+  name: string;
+  orders: number;
+  units?: number;
+  deliveredUnits?: number;
+  ordered: string;
+  delivered: string;
+};
+
+export type SalesReport = {
+  from: string;
+  to: string;
+  group: "rep" | "territory" | "distributor" | "outlet" | "product";
+  rows: SalesRow[];
+};
+
+export type StockSummaryRow = { distributor: number; name: string; products: number; units: number; value: string };
+
+export type MoneySummaryRow = DistributorBalance & {
+  distributor: number;
+  name: string;
+  sold: string;
+  collected: string;
+  outletDue: string;
 };

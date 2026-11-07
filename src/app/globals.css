@@ -173,3 +173,65 @@ body {
     animation: none !important;
   }
 }
+
+/* Only .print-doc reaches paper, always in black on white. */
+@media print {
+  :root {
+    --surface: #fff;
+    --surface-2: #fff;
+    --paper: #fff;
+    --ink: #000;
+    --ink-2: #333;
+    --line: #bbb;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-doc,
+  .print-doc * {
+    visibility: visible;
+  }
+
+  .print-doc {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    max-width: none;
+    color: #000;
+  }
+
+  dialog[open] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    overflow: visible;
+    border: 0;
+    box-shadow: none;
+  }
+
+  dialog[open] > div:first-child {
+    display: none;
+  }
+
+  dialog[open] > div:last-child {
+    padding: 0;
+  }
+
+  dialog[open] .print-doc {
+    position: static;
+  }
+
+  dialog::backdrop {
+    display: none;
+  }
+}
