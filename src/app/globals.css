@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --paper: #f6f3ec;
+  --surface: #ffffff;
+  --surface-2: #f0ece3;
+  --line: #e4dfd3;
+  --ink: #142624;
+  --ink-2: #4c5f5b;
+  --ink-3: #6f7f7b;
+  --pine: #0b3b3c;
+  --pine-2: #125253;
+  --brand: #0b7a75;
+  --brand-soft: #dcefec;
+  --marigold: #f2a93b;
+  --marigold-ink: #3d2800;
+  --ok: #17845a;
+  --ok-soft: #dcf1e7;
+  --warn: #b77400;
+  --warn-soft: #fbedd0;
+  --off: #7b8a87;
+  --off-soft: #e8e8e3;
+  --bad: #c2384f;
+  --bad-soft: #f9e1e5;
+  --shadow: 0 1px 2px rgb(20 38 36 / 0.05), 0 8px 24px -16px rgb(20 38 36 / 0.18);
+}
+
+.dark {
+  --paper: #0c1716;
+  --surface: #132120;
+  --surface-2: #1a2c2a;
+  --line: #263a38;
+  --ink: #edf3f1;
+  --ink-2: #aebdb9;
+  --ink-3: #8a9b97;
+  --pine: #081312;
+  --pine-2: #12302f;
+  --brand: #3cc4b8;
+  --brand-soft: #143a38;
+  --marigold: #f5b95c;
+  --marigold-ink: #2f1f00;
+  --ok: #4cc791;
+  --ok-soft: #123429;
+  --warn: #eab04a;
+  --warn-soft: #3a2b0e;
+  --off: #8a9b97;
+  --off-soft: #223331;
+  --bad: #f0778b;
+  --bad-soft: #3e1a21;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-pine: var(--pine);
+  --color-pine-2: var(--pine-2);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-marigold: var(--marigold);
+  --color-marigold-ink: var(--marigold-ink);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-off: var(--off);
+  --color-off-soft: var(--off-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --font-sans: var(--font-body);
+  --font-display: var(--font-heading);
+  --shadow-card: var(--shadow);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+/* No `position` here: MapLibre positions the marker element absolutely. */
+.pin {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  color: #fff;
+  font: 700 11px/1 var(--font-body), sans-serif;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+  cursor: pointer;
+}
+
+.pin[data-selected="true"] {
+  outline: 3px solid var(--marigold);
+  outline-offset: 1px;
+}
+
+.pin[data-status="ONLINE"] {
+  background: #17845a;
+}
+
+.pin[data-status="IDLE"] {
+  background: #b77400;
+}
+
+.pin[data-status="OFFLINE"] {
+  background: #66736f;
+}
+
+.pin[data-status="ONLINE"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #17845a;
+  z-index: -1;
+  animation: pulse-ring 2.2s ease-out infinite;
+}
+
+.stop {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  background: #0b7a75;
+  color: #fff;
+  font: 700 11px/1 var(--font-body), sans-serif;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pin::after {
+    animation: none !important;
+  }
+}
