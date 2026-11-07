@@ -43,6 +43,20 @@ function OrderDialog({ order, onClose }: { order: Order; onClose: () => void }) 
               <td className="py-2 text-right">{money(line.amount)}</td>
             </tr>
           ))}
+          {Number(order.discountAmount) > 0 && (
+            <>
+              <tr>
+                <td colSpan={3} className="pt-2">
+                  Subtotal
+                </td>
+                <td className="pt-2 text-right">{money(order.grossTotal)}</td>
+              </tr>
+              <tr>
+                <td colSpan={3}>Discount ({Number(order.discountPercent)}%)</td>
+                <td className="text-right">− {money(order.discountAmount)}</td>
+              </tr>
+            </>
+          )}
           <tr>
             <td colSpan={3} className="py-2 font-semibold">
               Total
@@ -107,6 +121,7 @@ export default function OrdersPage() {
               </span>
             ),
           },
+          { header: "Discount", align: "right", cell: (row) => (Number(row.discountPercent) > 0 ? `${Number(row.discountPercent)}%` : "—") },
           { header: "Value", align: "right", cell: (row) => money(row.total) },
         ]}
       />

@@ -73,11 +73,11 @@ export const can = {
   manageAccounts: (role?: Role) => role === "SUPER_ADMIN" || role === "ADMIN",
   createRole: (viewer: Role | undefined, target: Role) => {
     if (viewer === "SUPER_ADMIN") return target !== "SUPER_ADMIN";
-    if (viewer === "ADMIN") return target === "MANAGER" || target === "EMPLOYEE";
+    if (viewer === "ADMIN") return target === "MANAGER" || target === "EMPLOYEE" || target === "DISTRIBUTOR";
     return viewer === "MANAGER" && target === "EMPLOYEE";
   },
   editPerson: (viewer: Role | undefined, target: Role) => {
     if (viewer === "SUPER_ADMIN") return true;
-    return viewer === "ADMIN" && (target === "MANAGER" || target === "EMPLOYEE");
+    return viewer === "ADMIN" && (target === "MANAGER" || target === "EMPLOYEE" || target === "DISTRIBUTOR");
   },
 };

@@ -13,13 +13,25 @@ function RulesForm({ rules, canEdit }: { rules: FieldRules; canEdit: boolean }) 
   const client = useQueryClient();
   const [snapshotMinutes, setSnapshotMinutes] = useState(String(rules.snapshotMinutes));
   const [orderRadiusM, setOrderRadiusM] = useState(String(rules.orderRadiusM));
+  const [photoRequired, setPhotoRequired] = useState(rules.photoRequired);
+  const [maxDiscount, setMaxDiscount] = useState(String(Number(rules.maxDiscountPercent)));
 
   const save = useMutation({
-    mutationFn: () => patch<FieldRules>("/field-settings", { snapshotMinutes: Number(snapshotMinutes), orderRadiusM: Number(orderRadiusM) }),
+    mutationFn: () =>
+      patch<FieldRules>("/field-settings", {
+        snapshotMinutes: Number(snapshotMinutes),
+        orderRadiusM: Number(orderRadiusM),
+        photoRequired,
+        maxDiscountPercent: maxDiscount || "0",
+      }),
     onSuccess: (saved) => client.setQueryData(["field-settings"], saved),
   });
 
-  const changed = snapshotMinutes !== String(rules.snapshotMinutes) || orderRadiusM !== String(rules.orderRadiusM);
+  const changed =
+    snapshotMinutes !== String(rules.snapshotMinutes) ||
+    orderRadiusM !== String(rules.orderRadiusM) ||
+    photoRequired !== rules.photoRequired ||
+    Number(maxDiscount) !== Number(rules.maxDiscountPercent);
 
   return (
     <Card className="space-y-5 p-5">
@@ -39,6 +51,19 @@ function RulesForm({ rules, canEdit }: { rules: FieldRules; canEdit: boolean }) 
         <Input disabled={!canEdit} type="number" min="20" max="2000" required value={orderRadiusM} onChange={(event) => setOrderRadiusM(event.target.value)} />
       </Field>
       <p className="-mt-3 text-sm text-ink-2">Reps further away than this cannot start a visit or take an order at a store.</p>
+
+      <Field label="Largest discount a rep can give (%)">
+        <Input disabled={!canEdit} type="number" min="0" max="100" step="0.01" required value={maxDiscount} onChange={(event) => setMaxDiscount(event.target.value)} />
+      </Field>
+      <p className="-mt-3 text-sm text-ink-2">Comes off the whole order. Set it to 0 to turn discounts off.</p>
+
+      <label className="flex items-start gap-3">
+        <input disabled={!canEdit} type="checkbox" className="mt-0.5 size-5 accent-[var(--brand)]" checked={photoRequired} onChange={(event) => setPhotoRequired(event.target.checked)} />
+        <span>
+          <span className="block text-sm font-medium">Require an outlet photo on every visit</span>
+          <span className="block text-sm text-ink-2">When this is off, reps can skip the photo.</span>
+        </span>
+      </label>
 
       {canEdit && (
         <div className="flex justify-end">

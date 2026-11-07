@@ -1,4 +1,4 @@
-export type Role = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "EMPLOYEE";
+export type Role = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "EMPLOYEE" | "DISTRIBUTOR";
 export type Presence = "ONLINE" | "IDLE" | "OFFLINE";
 export type AttendanceStatus = "WORKING" | "COMPLETED" | "ABSENT";
 
@@ -17,6 +17,8 @@ export type Person = {
   districtName: string | null;
   territory: number | null;
   territoryName: string | null;
+  distributor: number | null;
+  distributorName: string | null;
   role: Role;
   isAccountCompleted: boolean;
   active: boolean;
@@ -120,7 +122,7 @@ export type Territory = Region & {
   zoneRadiusM: number | null;
 };
 
-export type FieldRules = { snapshotMinutes: number; orderRadiusM: number };
+export type FieldRules = { snapshotMinutes: number; orderRadiusM: number; photoRequired: boolean; maxDiscountPercent: string };
 
 export type Distributor = {
   id: number;
@@ -199,11 +201,15 @@ export type Order = {
   capturedAt: string;
   kind: "REGULAR" | "READY_SALE";
   status: "SUBMITTED" | "CANCELLED";
+  grossTotal: string;
+  discountPercent: string;
+  discountAmount: string;
   total: string;
   employeeName: string;
   outletName: string;
+  distributor: number;
   distributorName: string;
-  lines: { id: number; productName: string; sku: string; quantity: number; tradePrice: string; amount: string }[];
+  lines: { id: number; product: number; productName: string; sku: string; quantity: number; tradePrice: string; amount: string }[];
 };
 
 export type VisitRow = {
@@ -217,4 +223,105 @@ export type VisitRow = {
   distanceM: number | null;
   withinRange: boolean | null;
   photoUrl: string | null;
+};
+
+export type DocLine = { id: number; product: number; productName: string; sku: string; quantity: number; unitPrice?: string; amount?: string };
+
+export type Indent = {
+  id: number;
+  number: string;
+  distributor: number;
+  distributorName: string;
+  date: string;
+  status: "REQUESTED" | "INVOICED" | "REJECTED";
+  note: string;
+  lines: DocLine[];
+};
+
+export type PrimaryInvoice = {
+  id: number;
+  number: string;
+  distributor: number;
+  distributorName: string;
+  date: string;
+  status: "ISSUED" | "RECEIVED";
+  total: string;
+  lines: DocLine[];
+};
+
+export type Deposit = {
+  id: number;
+  distributor: number;
+  distributorName: string;
+  date: string;
+  amount: string;
+  method: "BANK" | "CASH" | "MOBILE";
+  reference: string;
+  status: "PENDING" | "CONFIRMED" | "REJECTED";
+};
+
+export type Delivery = {
+  id: number;
+  number: string;
+  order: number;
+  outlet: number;
+  outletName: string;
+  distributor: number;
+  distributorName: string;
+  date: string;
+  grossTotal: string;
+  discountAmount: string;
+  total: string;
+  collected: string;
+  lines: DocLine[];
+};
+
+export type DamageClaim = {
+  id: number;
+  number: string;
+  distributor: number;
+  distributorName: string;
+  outlet: number | null;
+  outletName: string | null;
+  kind: "WAREHOUSE" | "TRADE";
+  date: string;
+  status: "SUBMITTED" | "VERIFIED" | "APPROVED" | "REJECTED";
+  total: string;
+  note: string;
+  rejectionReason: string;
+  lines: DocLine[];
+};
+
+export type StockRow = { product: number; name: string; sku: string; quantity: number; cases: number };
+
+export type DailyStock = {
+  date: string;
+  rows: { product: number; name: string; sku: string; opening: number; stockIn: number; stockOut: number; closing: number }[];
+};
+
+export type Movement = {
+  id: number;
+  product: number;
+  productName: string;
+  quantity: number;
+  kind: "RECEIPT" | "DELIVERY" | "DAMAGE" | "ADJUSTMENT";
+  date: string;
+  reference: string;
+  note: string;
+  createdAt: string;
+};
+
+export type DistributorBalance = { received: string; deposits: string; claims: string; balance: string };
+
+export type OutletDue = { outlet: number; outletName: string; billed: string; paid: string; due: string };
+
+export type FillRow = {
+  product: number;
+  name: string;
+  sku: string;
+  ordered: number;
+  delivered: number;
+  orderedValue: string;
+  deliveredValue: string;
+  fillPercent: number;
 };

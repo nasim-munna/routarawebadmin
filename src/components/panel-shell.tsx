@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Boxes, CalendarCheck, ClipboardList, Footprints, CalendarDays, Goal, LayoutGrid, LogOut, MapPinned, Network, Route, Settings2, SlidersHorizontal, Store, Truck, Users } from "lucide-react";
+import { Banknote, Boxes, CalendarCheck, ClipboardList, Footprints, CalendarDays, Goal, HandCoins, LayoutGrid, LogOut, MapPinned, MoreHorizontal, Network, PackageCheck, PackageOpen, PackageX, Route, Scale, Settings2, SlidersHorizontal, Store, Truck, Users, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -21,6 +21,16 @@ export const fieldNav = [
   { href: "/field/visits", label: "Visits", icon: Footprints },
 ];
 
+export const distributionNav = [
+  { href: "/distribution/stock", label: "Stock", icon: Warehouse },
+  { href: "/distribution/deliveries", label: "Deliveries", icon: PackageCheck },
+  { href: "/distribution/requests", label: "Stock requests", icon: PackageOpen },
+  { href: "/distribution/deposits", label: "Deposits", icon: Banknote },
+  { href: "/distribution/dues", label: "Outlet dues", icon: HandCoins },
+  { href: "/distribution/claims", label: "Damage claims", icon: PackageX },
+  { href: "/distribution/fill-rate", label: "Order vs delivery", icon: Scale },
+];
+
 export const setupNav = [
   { href: "/setup/territories", label: "Territories", icon: Network },
   { href: "/setup/distributors", label: "Distributors", icon: Truck },
@@ -33,6 +43,7 @@ export const setupNav = [
 ];
 
 const mobileNav = [...nav, { href: "/setup", label: "Setup", icon: Settings2 }];
+const operatorMobileNav = [...distributionNav.slice(0, 4), { href: "/distribution", label: "More", icon: MoreHorizontal }];
 
 function SideLink({ href, label, icon: Icon, active }: (typeof nav)[number] & { active: boolean }) {
   return (
@@ -55,11 +66,15 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const operator = user?.role === "DISTRIBUTOR";
+  const lost = operator && !pathname.startsWith("/distribution");
+
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
-  }, [loading, user, router]);
+    if (lost) router.replace("/distribution/stock");
+  }, [loading, user, lost, router]);
 
-  if (!user) {
+  if (!user || lost) {
     return (
       <div className="grid min-h-dvh place-items-center">
         <Skeleton className="h-10 w-40" />
@@ -67,7 +82,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+  const isActive = (href: string) => (href === "/" || href === "/distribution" ? pathname === href : pathname.startsWith(href));
   const name = fullName(user);
 
   return (
@@ -79,17 +94,29 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
         </Link>
 
         <nav className="flex-1 space-y-1 overflow-y-auto" aria-label="Main">
-          {nav.map((item) => (
+          {!operator && (
+            <>
+              {nav.map((item) => (
+                <SideLink key={item.href} {...item} active={isActive(item.href)} />
+              ))}
+              <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Field sales</p>
+              {fieldNav.map((item) => (
+                <SideLink key={item.href} {...item} active={isActive(item.href)} />
+              ))}
+              <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Distribution</p>
+            </>
+          )}
+          {distributionNav.map((item) => (
             <SideLink key={item.href} {...item} active={isActive(item.href)} />
           ))}
-          <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Field sales</p>
-          {fieldNav.map((item) => (
-            <SideLink key={item.href} {...item} active={isActive(item.href)} />
-          ))}
-          <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Sales setup</p>
-          {setupNav.map((item) => (
-            <SideLink key={item.href} {...item} active={isActive(item.href)} />
-          ))}
+          {!operator && (
+            <>
+              <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Sales setup</p>
+              {setupNav.map((item) => (
+                <SideLink key={item.href} {...item} active={isActive(item.href)} />
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="rounded-xl bg-pine-2 p-3">
@@ -97,7 +124,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
             <Avatar text={initials(name)} />
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{name}</p>
-              <p className="text-xs text-[#a9bdb8]">{roleLabel[user.role]}</p>
+              <p className="truncate text-xs text-[#a9bdb8]">{user.distributorName ?? roleLabel[user.role]}</p>
             </div>
           </div>
           <div className="mt-2 flex items-center justify-between">
@@ -127,7 +154,7 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-line bg-surface md:hidden" aria-label="Main">
-        {mobileNav.map(({ href, label, icon: Icon }) => (
+        {(operator ? operatorMobileNav : mobileNav).map(({ href, label, icon: Icon }) => (
           <Link
             key={href}
             href={href}

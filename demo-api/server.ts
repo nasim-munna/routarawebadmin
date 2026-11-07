@@ -56,6 +56,8 @@ function makePerson(id: number, role: string, first: string, last: string, email
     lastSeen: 0,
     checkIn: null as Date | null,
     checkOut: null as Date | null,
+    distributor: null as number | null,
+    distributorName: null as string | null,
   };
 }
 
@@ -63,6 +65,7 @@ const people: DemoPerson[] = [
   makePerson(1, "ADMIN", "Demo", "Admin", "admin@routara.demo", null),
   makePerson(2, "MANAGER", "Demo", "Manager", "manager@routara.demo", 0),
   makePerson(3, "EMPLOYEE", "Demo", "Employee", "employee@routara.demo", 0),
+  { ...makePerson(90, "DISTRIBUTOR", "Demo", "Operator", "operator@routara.demo", null), distributor: 1, distributorName: "Alpha Traders" },
 ];
 
 firstNames.forEach((first, index) => {
@@ -79,7 +82,7 @@ function atDhakaTime(hour: number, minute: number) {
   return new Date(`${isoDay()}T${clock}:00+06:00`);
 }
 
-const fieldStaff = () => people.filter((person) => person.role !== "ADMIN" && person.role !== "SUPER_ADMIN");
+const fieldStaff = () => people.filter((person) => person.role === "MANAGER" || person.role === "EMPLOYEE");
 
 for (const person of fieldStaff()) {
   const roll = random();
@@ -170,9 +173,14 @@ const targets = new Map<string, string>();
     ...common,
     kind: "REGULAR",
     status: "SUBMITTED",
+    grossTotal: total,
+    discountPercent: "0.00",
+    discountAmount: "0.00",
     total,
     distributorName: "Alpha Traders",
-    lines: [{ id: index + 1, productName: "Salted Crackers 100g", sku: "SN-001", quantity, tradePrice: "18.00", amount: total }],
+    outlet: index + 1,
+    distributor: 1,
+    lines: [{ id: index + 1, product: 1, productName: "Salted Crackers 100g", sku: "SN-001", quantity, tradePrice: "18.00", amount: total }],
   });
   store.visits.push({ ...common, outcome: "PRODUCTIVE", reasonName: null, distanceM: 24 + index * 11, withinRange: true, photoUrl: null });
 });
@@ -433,12 +441,14 @@ function route(method: string, path: string, query: URLSearchParams, body: Recor
     return target ? ok(publicPerson(target)) : fail(404, "Not found.");
   }
 
-  const create = path.match(/^\/user\/create\/(admin|manager|employee)$/);
+  const create = path.match(/^\/user\/create\/(admin|manager|employee|operator)$/);
   if (method === "POST" && create) {
     if (people.some((p) => p.email === body.email)) return fail(400, "user with this email already exists.");
     if (body.password !== body.confirmPassword) return fail(400, "Password does not match.");
-    const created = makePerson(Math.max(...people.map((p) => p.id)) + 1, create[1].toUpperCase(), body.firstName, body.lastName, body.email, null);
-    created.isAccountCompleted = false;
+    const operator = create[1] === "operator";
+    const created = makePerson(Math.max(...people.map((p) => p.id)) + 1, operator ? "DISTRIBUTOR" : create[1].toUpperCase(), body.firstName, body.lastName, body.email, null);
+    created.isAccountCompleted = operator;
+    if (operator) Object.assign(created, { distributor: Number(body.distributor), distributorName: nameOf("distributors", body.distributor) });
     people.unshift(created);
     return ok(null, "Account created successfully");
   }
@@ -463,11 +473,213 @@ function route(method: string, path: string, query: URLSearchParams, body: Recor
     return ok(null, "User account deleted successfully");
   }
 
+  const distribution = distributionRoute(method, path, query, body as unknown as Row, viewer);
+  if (distribution) return distribution;
+
   const setup = setupRoute(method, path, query, body as unknown as Row, viewer);
   return setup ?? fail(404, `Demo API has no route for ${method} ${path}`);
 }
 
-const fieldRules = { snapshotMinutes: 15, orderRadiusM: 100 };
+const docs: Record<string, Row[]> = { indents: [], "primary-invoices": [], deposits: [], deliveries: [], "damage-claims": [], movements: [] };
+const payments: { distributor: number; outlet: number; amount: number }[] = [];
+
+let nextDoc = 1;
+const stamp = (prefix: string) => {
+  const id = nextDoc++;
+  return { id, number: `${prefix}${String(id).padStart(6, "0")}` };
+};
+
+const productOf = (id: unknown) => view("products", store.products.find((row) => row.id === Number(id))!);
+const priced = (rows: { product: number; quantity: number }[]) =>
+  rows.map((row, index) => {
+    const product = productOf(row.product);
+    const unitPrice = String(product.tradePrice ?? "0.00");
+    return { id: index + 1, product: row.product, productName: product.name, sku: product.sku, quantity: row.quantity, unitPrice, amount: (Number(unitPrice) * row.quantity).toFixed(2) };
+  });
+const sumOf = (rows: { amount: string }[]) => rows.reduce((total, row) => total + Number(row.amount), 0).toFixed(2);
+
+function move(distributor: number, product: number, quantity: number, kind: string, reference: string, note = "") {
+  docs.movements.unshift({ id: nextDoc++, distributor, product, productName: productOf(product).name, quantity, kind, date: isoDay(), reference, note, createdAt: new Date().toISOString() });
+}
+
+const levels = (distributor: number) => {
+  const totals = new Map<number, number>();
+  for (const row of docs.movements) if (row.distributor === distributor) totals.set(row.product as number, (totals.get(row.product as number) ?? 0) + (row.quantity as number));
+  return totals;
+};
+
+const distributorIdFor = (viewer: DemoPerson, value: unknown) => (viewer.role === "DISTRIBUTOR" ? viewer.distributor! : Number(value));
+
+function pagedDocs(rows: Row[], query: URLSearchParams, viewer: DemoPerson) {
+  const wanted = viewer.role === "DISTRIBUTOR" ? String(viewer.distributor) : query.get("distributor");
+  const term = (query.get("search") ?? "").toLowerCase();
+  const status = query.get("status");
+  const matches = rows.filter(
+    (row) => (!wanted || String(row.distributor) === wanted) && (!status || row.status === status) && [row.number, row.outletName, row.distributorName].join(" ").toLowerCase().includes(term),
+  );
+  return ok({ count: matches.length, totalPages: 1, currentPage: 1, results: matches.slice(0, 20) });
+}
+
+function dues(distributor: number) {
+  const totals = new Map<number, { outlet: number; outletName: unknown; billed: number; paid: number }>();
+  for (const row of docs.deliveries) {
+    if (row.distributor !== distributor) continue;
+    const entry = totals.get(row.outlet as number) ?? { outlet: row.outlet as number, outletName: row.outletName, billed: 0, paid: 0 };
+    entry.billed += Number(row.total);
+    totals.set(entry.outlet, entry);
+  }
+  for (const row of payments) {
+    const entry = totals.get(row.outlet);
+    if (entry && row.distributor === distributor) entry.paid += row.amount;
+  }
+  return [...totals.values()].map((row) => ({ ...row, billed: row.billed.toFixed(2), paid: row.paid.toFixed(2), due: (row.billed - row.paid).toFixed(2) }));
+}
+
+function distributionRoute(method: string, path: string, query: URLSearchParams, body: Row, viewer: DemoPerson) {
+  const distributor = distributorIdFor(viewer, query.get("distributor") ?? body.distributor);
+  const distributorName = nameOf("distributors", distributor);
+
+  if (path === "/stock") {
+    return ok([...levels(distributor)].map(([id, quantity]) => {
+      const product = productOf(id);
+      return { product: id, name: product.name, sku: product.sku, quantity, cases: Math.round((quantity / (product.unitsPerCase as number)) * 100) / 100 };
+    }));
+  }
+  if (path === "/stock/daily") {
+    const date = query.get("date") ?? isoDay();
+    const rows = [...levels(distributor).keys()].map((id) => {
+      const moves = docs.movements.filter((row) => row.distributor === distributor && row.product === id);
+      const sum = (test: (row: Row) => boolean) => moves.filter(test).reduce((total, row) => total + (row.quantity as number), 0);
+      const opening = sum((row) => String(row.date) < date);
+      const stockIn = sum((row) => row.date === date && (row.quantity as number) > 0);
+      const stockOut = -sum((row) => row.date === date && (row.quantity as number) < 0);
+      const product = productOf(id);
+      return { product: id, name: product.name, sku: product.sku, opening, stockIn, stockOut, closing: opening + stockIn - stockOut };
+    });
+    return ok({ date, rows });
+  }
+  if (path === "/stock/movements") return pagedDocs(docs.movements, query, viewer);
+  if (path === "/stock/adjust") {
+    const difference = Number(body.counted) - (levels(distributor).get(Number(body.product)) ?? 0);
+    if (!difference) return fail(400, "That already matches the stock.");
+    move(distributor, Number(body.product), difference, "ADJUSTMENT", "", String(body.note));
+    return ok(null, "Stock adjusted.");
+  }
+  if (path === "/distribution/balance") {
+    const total = (rows: Row[], field: string, status: string) => rows.filter((row) => row.distributor === distributor && row.status === status).reduce((sum, row) => sum + Number(row[field]), 0);
+    const received = total(docs["primary-invoices"], "total", "RECEIVED");
+    const deposits = total(docs.deposits, "amount", "CONFIRMED");
+    const claims = total(docs["damage-claims"], "total", "APPROVED");
+    return ok({ received: received.toFixed(2), deposits: deposits.toFixed(2), claims: claims.toFixed(2), balance: (received - deposits - claims).toFixed(2) });
+  }
+  if (path === "/outlet-dues") return ok(dues(distributor));
+  if (path === "/outlet-payments") {
+    const due = dues(distributor).find((row) => row.outlet === Number(body.outlet));
+    if (!due || Number(body.amount) > Number(due.due)) return fail(400, `This outlet only owes ${due?.due ?? "0.00"}.`);
+    payments.push({ distributor, outlet: Number(body.outlet), amount: Number(body.amount) });
+    return ok(dues(distributor), "Payment recorded.");
+  }
+  if (path === "/reports/order-vs-delivery") {
+    const totals = new Map<string, Row>();
+    for (const order of store.orders) {
+      if (order.status !== "SUBMITTED") continue;
+      const delivery = docs.deliveries.find((row) => row.order === order.id);
+      for (const line of order.lines as Row[]) {
+        const row = totals.get(String(line.productName)) ?? { id: 0, product: line.product, name: line.productName, sku: line.sku, ordered: 0, delivered: 0, orderedValue: 0, deliveredValue: 0 };
+        const sent = (delivery?.lines as Row[] | undefined)?.find((item) => item.product === line.product);
+        row.ordered = (row.ordered as number) + (line.quantity as number);
+        row.orderedValue = (row.orderedValue as number) + Number(line.amount);
+        row.delivered = (row.delivered as number) + ((sent?.quantity as number) ?? 0);
+        row.deliveredValue = (row.deliveredValue as number) + Number(sent?.amount ?? 0);
+        totals.set(String(line.productName), row);
+      }
+    }
+    return ok([...totals.values()].map((row) => ({ ...row, orderedValue: Number(row.orderedValue).toFixed(2), deliveredValue: Number(row.deliveredValue).toFixed(2), fillPercent: Math.round(((row.delivered as number) / (row.ordered as number)) * 1000) / 10 })));
+  }
+
+  if (path === "/deliveries/pending") {
+    const pending = store.orders.filter((order) => order.status === "SUBMITTED" && !docs.deliveries.some((row) => row.order === order.id));
+    return ok({ count: pending.length, totalPages: 1, currentPage: 1, results: pending });
+  }
+  if (path === "/deliveries" && method === "POST") {
+    const order = store.orders.find((row) => row.id === Number(body.order))!;
+    const levelsNow = levels(order.distributor as number);
+    const asked = body.lines as unknown as { orderLine: number; quantity: number }[];
+    const lines: Row[] = [];
+    for (const line of order.lines as Row[]) {
+      const quantity = asked.find((row) => row.orderLine === line.id)?.quantity ?? 0;
+      if (!quantity) continue;
+      if (quantity > (levelsNow.get(line.product as number) ?? 0)) return fail(400, `Only ${levelsNow.get(line.product as number) ?? 0} of ${line.productName} in stock.`);
+      lines.push({ id: line.id as number, product: line.product, productName: line.productName, sku: line.sku, quantity, unitPrice: line.tradePrice, amount: (Number(line.tradePrice) * quantity).toFixed(2) });
+    }
+    if (!lines.length) return fail(400, "Deliver at least one product.");
+    const gross = Number(sumOf(lines as unknown as { amount: string }[]));
+    const discount = Math.round(gross * Number(order.discountPercent)) / 100;
+    if (Number(body.collected) > gross - discount) return fail(400, "Cash collected can't be more than the invoice total.");
+    const doc = stamp("SI");
+    docs.deliveries.unshift({
+      ...doc, order: order.id, outlet: order.outlet, outletName: order.outletName, distributor: order.distributor, distributorName: order.distributorName, date: isoDay(),
+      grossTotal: gross.toFixed(2), discountAmount: discount.toFixed(2), total: (gross - discount).toFixed(2), collected: Number(body.collected).toFixed(2), lines,
+    });
+    for (const line of lines) move(order.distributor as number, line.product as number, -(line.quantity as number), "DELIVERY", doc.number);
+    if (Number(body.collected) > 0) payments.push({ distributor: order.distributor as number, outlet: order.outlet as number, amount: Number(body.collected) });
+    return { status: 201, body: { success: true, message: "Created", data: docs.deliveries[0] } };
+  }
+
+  const match = path.match(/^\/(indents|primary-invoices|deposits|deliveries|damage-claims)(?:\/(\d+)\/([a-z]+))?$/);
+  if (!match) return null;
+  const [, resource, rawId, action] = match;
+
+  if (!rawId && method === "GET") return pagedDocs(docs[resource], query, viewer);
+
+  if (!rawId && method === "POST") {
+    const common = { distributor, distributorName, date: isoDay(), note: body.note ?? "" };
+    let created: Row;
+    if (resource === "indents") {
+      created = { ...stamp("IN"), ...common, status: "REQUESTED", lines: priced(body.lines as never).map(({ id, product, productName, sku, quantity }) => ({ id, product, productName, sku, quantity })) };
+    } else if (resource === "deposits") {
+      created = { ...body, id: nextDoc++, distributor, distributorName, status: "PENDING", reference: body.reference ?? "" };
+    } else {
+      if (body.kind === "TRADE" && !body.outlet) return fail(400, "Choose the outlet the damaged goods came from.");
+      const lines = priced(body.lines as never);
+      created = { ...stamp("DC"), ...common, kind: body.kind, outlet: body.outlet, outletName: body.outlet ? nameOf("outlets", body.outlet) : null, status: "SUBMITTED", total: sumOf(lines), rejectionReason: "", lines };
+    }
+    docs[resource].unshift(created);
+    return { status: 201, body: { success: true, message: "Created", data: created } };
+  }
+
+  const row = docs[resource].find((item) => item.id === Number(rawId));
+  if (!row) return fail(404, "Not found.");
+
+  if (resource === "indents" && action === "approve") {
+    const lines = priced(row.lines as never);
+    row.status = "INVOICED";
+    const invoice = { ...stamp("PI"), distributor: row.distributor, distributorName: row.distributorName, date: isoDay(), status: "ISSUED", total: sumOf(lines), lines };
+    docs["primary-invoices"].unshift(invoice);
+    return ok(invoice);
+  }
+  if (resource === "primary-invoices" && action === "receive") {
+    if (row.status !== "ISSUED") return fail(400, "This invoice has already been received.");
+    row.status = "RECEIVED";
+    for (const line of row.lines as Row[]) move(row.distributor as number, line.product as number, line.quantity as number, "RECEIPT", String(row.number));
+    return ok(row);
+  }
+  if (resource === "damage-claims" && action === "approve") {
+    if (row.status !== "VERIFIED") return fail(400, "A manager must verify this claim first.");
+    if (row.kind === "WAREHOUSE") for (const line of row.lines as Row[]) move(row.distributor as number, line.product as number, -(line.quantity as number), "DAMAGE", String(row.number));
+    row.status = "APPROVED";
+    return ok(row);
+  }
+  const next: Record<string, string> = { verify: "VERIFIED", confirm: "CONFIRMED", reject: "REJECTED" };
+  if (next[action]) {
+    row.status = next[action];
+    if (body.reason) row.rejectionReason = body.reason;
+    return ok(row);
+  }
+  return null;
+}
+
+const fieldRules = { snapshotMinutes: 15, orderRadiusM: 100, photoRequired: false, maxDiscountPercent: "10.00" };
 
 const PAGED = ["distributors", "outlets", "products", "beats", "orders", "visits"];
 
@@ -577,6 +789,10 @@ function setupRoute(method: string, path: string, query: URLSearchParams, body: 
     results: matches.slice((page - 1) * size, page * size).map((item) => view(resource, item)),
   });
 }
+
+// A little opening stock, so deliveries can be tried straight away.
+move(1, 1, 60, "RECEIPT", "OPENING");
+move(1, 2, 96, "RECEIPT", "OPENING");
 
 function livePayload(person: DemoPerson) {
   return {

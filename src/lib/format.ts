@@ -61,4 +61,5 @@ export const roleLabel = {
   ADMIN: "Admin",
   MANAGER: "Manager",
   EMPLOYEE: "Employee",
+  DISTRIBUTOR: "Distributor Operator",
 } as const;

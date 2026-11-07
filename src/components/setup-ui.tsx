@@ -41,8 +41,9 @@ type FormDialogProps = {
 function toPayload(fields: FieldSpec[], values: Values) {
   const payload = { ...values };
   for (const field of fields) {
-    if (field.type === "select" && payload[field.name] !== "" && payload[field.name] != null) {
-      payload[field.name] = Number(payload[field.name]);
+    const value = payload[field.name];
+    if (field.type === "select" && value !== "" && value != null && !Number.isNaN(Number(value))) {
+      payload[field.name] = Number(value);
     }
   }
   return payload;

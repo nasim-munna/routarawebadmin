@@ -5,13 +5,14 @@ import { useState } from "react";
 import { api, patch, post } from "@/lib/api";
 import { can, useAuth } from "@/lib/auth";
 import { fullName, roleLabel } from "@/lib/format";
-import type { District, Division, Person, Role, Territory } from "@/lib/types";
+import type { District, Distributor, Division, Page, Person, Role, Territory } from "@/lib/types";
 import { Button, Dialog, ErrorNote, Field, Input, Select } from "./ui";
 
 const createPaths: Partial<Record<Role, string>> = {
   ADMIN: "/user/create/admin",
   MANAGER: "/user/create/manager",
   EMPLOYEE: "/user/create/employee",
+  DISTRIBUTOR: "/user/create/operator",
 };
 
 function Actions({ onClose, busy, label, danger }: { onClose: () => void; busy: boolean; label: string; danger?: boolean }) {
@@ -30,15 +31,22 @@ function Actions({ onClose, busy, label, danger }: { onClose: () => void; busy: 
 export function CreatePersonDialog({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
   const client = useQueryClient();
-  const roles = (["EMPLOYEE", "MANAGER", "ADMIN"] as Role[]).filter((role) => can.createRole(user?.role, role));
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "", confirmPassword: "", role: roles[0] });
+  const roles = (["EMPLOYEE", "MANAGER", "ADMIN", "DISTRIBUTOR"] as Role[]).filter((role) => can.createRole(user?.role, role));
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "", confirmPassword: "", role: roles[0], distributor: "" });
   const set = (key: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [key]: event.target.value });
 
+  const isOperator = form.role === "DISTRIBUTOR";
+  const distributors = useQuery({
+    queryKey: ["distributor-options"],
+    queryFn: () => api<Page<Distributor>>("/distributors?size=100&is_active=true"),
+    enabled: isOperator,
+  });
+
   const create = useMutation({
     mutationFn: () => {
-      const { role, ...body } = form;
-      return post(createPaths[role]!, body);
+      const { role, distributor, ...body } = form;
+      return post(createPaths[role]!, isOperator ? { ...body, distributor: Number(distributor) } : body);
     },
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["people"] });
@@ -76,6 +84,18 @@ export function CreatePersonDialog({ onClose }: { onClose: () => void }) {
             ))}
           </Select>
         </Field>
+        {isOperator && (
+          <Field label="Distributor">
+            <Select required value={form.distributor} onChange={set("distributor")}>
+              <option value="">Choose…</option>
+              {distributors.data?.results.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Temporary password">
             <Input type="password" required minLength={8} maxLength={20} autoComplete="new-password" value={form.password} onChange={set("password")} />
@@ -84,7 +104,9 @@ export function CreatePersonDialog({ onClose }: { onClose: () => void }) {
             <Input type="password" required autoComplete="new-password" value={form.confirmPassword} onChange={set("confirmPassword")} />
           </Field>
         </div>
-        <p className="text-sm text-ink-2">They add their phone, NID and district when they first sign in to the app.</p>
+        <p className="text-sm text-ink-2">
+          {isOperator ? "They sign in to this panel and only see their own distributor." : "They add their phone, NID and district when they first sign in to the app."}
+        </p>
         <Actions onClose={onClose} busy={create.isPending} label="Add person" />
       </form>
     </Dialog>
