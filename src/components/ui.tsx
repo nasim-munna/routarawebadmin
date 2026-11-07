@@ -94,6 +94,7 @@ const attendance = {
   WORKING: { label: "Working", className: "bg-ok-soft text-ok" },
   COMPLETED: { label: "Finished", className: "bg-brand-soft text-brand" },
   ABSENT: { label: "Absent", className: "bg-bad-soft text-bad" },
+  ON_LEAVE: { label: "On leave", className: "bg-warn-soft text-warn" },
 } as const;
 
 export function AttendanceBadge({ status }: { status: AttendanceStatus }) {

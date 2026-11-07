@@ -50,10 +50,13 @@ export function initials(name: string) {
   return ((parts[0]?.[0] ?? "?") + (parts[1]?.[0] ?? "")).toUpperCase();
 }
 
-const taka = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 2 });
+const taka = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+const paisa = new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function money(value: string | number | null | undefined) {
-  return value === null || value === undefined ? "—" : `৳ ${taka.format(Number(value))}`;
+  if (value === null || value === undefined) return "—";
+  const amount = Number(value);
+  return `৳ ${(Number.isInteger(amount) ? taka : paisa).format(amount)}`;
 }
 
 export const roleLabel = {

@@ -131,6 +131,13 @@ const store: Record<string, Row[]> = {
   "non-productive-reasons": named(["Shop closed", "Owner not available", "Enough stock", "Credit issue"]),
   orders: [],
   visits: [],
+  "leave-requests": [
+    { id: 1, employee: 3, employeeName: "Demo Employee", kind: "SICK", startDate: isoDay(-1), endDate: isoDay(-2), days: 2, reason: "Fever", status: "PENDING", rejectionReason: "" },
+  ],
+  expenses: [
+    { id: 1, employee: 3, employeeName: "Demo Employee", date: isoDay(), category: "TRANSPORT", amount: "120.00", note: "Bus to Gulshan", status: "PENDING", rejectionReason: "" },
+  ],
+  offers: [{ id: 1, title: "Buy 10 get 1 free", details: "Salted Crackers, by the case", startDate: isoDay(5), endDate: isoDay(-20), isActive: true }],
   beats: [
     { id: 1, territory: 1, name: "Dhaka North", code: "B-DN", isActive: true },
     { id: 2, territory: 1, name: "Dhaka South", code: "B-DS", isActive: true },
@@ -473,6 +480,9 @@ function route(method: string, path: string, query: URLSearchParams, body: Recor
     return ok(null, "User account deleted successfully");
   }
 
+  const chat = chatRoute(method, path, body as unknown as Row, viewer);
+  if (chat) return chat;
+
   const distribution = distributionRoute(method, path, query, body as unknown as Row, viewer);
   if (distribution) return distribution;
 
@@ -533,6 +543,36 @@ function dues(distributor: number) {
     if (entry && row.distributor === distributor) entry.paid += row.amount;
   }
   return [...totals.values()].map((row) => ({ ...row, billed: row.billed.toFixed(2), paid: row.paid.toFixed(2), due: (row.billed - row.paid).toFixed(2) }));
+}
+
+const chats = new Map<string, Row[]>();
+
+function chatRoute(method: string, path: string, body: Row, viewer: DemoPerson) {
+  const other = (id: string) => people.find((person) => person.id === id.split("-").map(Number).find((part) => part !== viewer.id));
+  const row = (id: string) => ({ id, name: null, lastMessage: chats.get(id)?.at(-1) ?? null, otherParticipant: other(id) ? publicPerson(other(id)!) : null });
+  if (path === "/conversation") {
+    const rows = [...chats.keys()].filter((id) => id.split("-").includes(String(viewer.id))).map(row);
+    return ok({ count: rows.length, totalPages: 1, currentPage: 1, results: rows });
+  }
+  const start = path.match(/^\/conversation\/start\/(\d+)$/);
+  if (start) {
+    const id = [viewer.id, Number(start[1])].sort((a, b) => a - b).join("-");
+    if (!chats.has(id)) chats.set(id, []);
+    return ok(row(id));
+  }
+  if (/^\/conversation\/[\d-]+\/seen$/.test(path)) return ok(null);
+  const thread = path.match(/^\/conversation\/([\d-]+)\/messages$/);
+  if (thread) {
+    const rows = chats.get(thread[1]) ?? [];
+    if (method === "POST") {
+      const message = { id: Date.now(), sender: viewer.id, senderName: fullName(viewer), message: body.message, createdAt: new Date().toISOString() };
+      rows.push(message);
+      chats.set(thread[1], rows);
+      return { status: 201, body: { success: true, message: "Message sent.", data: message } };
+    }
+    return ok({ count: rows.length, totalPages: 1, currentPage: 1, results: [...rows].reverse() });
+  }
+  return null;
 }
 
 function distributionRoute(method: string, path: string, query: URLSearchParams, body: Row, viewer: DemoPerson) {
@@ -732,7 +772,7 @@ function distributionRoute(method: string, path: string, query: URLSearchParams,
 
 const fieldRules = { snapshotMinutes: 15, orderRadiusM: 100, photoRequired: false, maxDiscountPercent: "10.00" };
 
-const PAGED = ["distributors", "outlets", "products", "beats", "orders", "visits"];
+const PAGED = ["distributors", "outlets", "products", "beats", "orders", "visits", "leave-requests", "expenses", "offers"];
 
 function setupRoute(method: string, path: string, query: URLSearchParams, body: Row, viewer: DemoPerson) {
   if (path === "/field-settings") {
@@ -774,6 +814,12 @@ function setupRoute(method: string, path: string, query: URLSearchParams, body: 
   const rows = store[resource];
   const row = rawId ? rows.find((item) => item.id === Number(rawId)) : undefined;
   if (rawId && !row) return fail(404, "Not found.");
+
+  if ((resource === "leave-requests" || resource === "expenses") && row && action) {
+    if (row.status !== "PENDING") return fail(400, "This has already been decided.");
+    Object.assign(row, action === "approve" ? { status: "APPROVED" } : { status: "REJECTED", rejectionReason: body.reason });
+    return ok(row);
+  }
 
   if (resource === "orders" && row && action === "cancel") {
     row.status = "CANCELLED";

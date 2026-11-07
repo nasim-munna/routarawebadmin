@@ -1,6 +1,6 @@
 export type Role = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "EMPLOYEE" | "DISTRIBUTOR";
 export type Presence = "ONLINE" | "IDLE" | "OFFLINE";
-export type AttendanceStatus = "WORKING" | "COMPLETED" | "ABSENT";
+export type AttendanceStatus = "WORKING" | "COMPLETED" | "ABSENT" | "ON_LEAVE";
 
 export type Person = {
   id: number;
@@ -355,4 +355,42 @@ export type MoneySummaryRow = DistributorBalance & {
   sold: string;
   collected: string;
   outletDue: string;
+};
+
+export type RequestStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+
+export type LeaveRequest = {
+  id: number;
+  employee: number;
+  employeeName: string;
+  kind: "CASUAL" | "SICK" | "ANNUAL" | "OTHER";
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason: string;
+  status: RequestStatus;
+  rejectionReason: string;
+};
+
+export type Expense = {
+  id: number;
+  employee: number;
+  employeeName: string;
+  date: string;
+  category: "TRANSPORT" | "FOOD" | "PHONE" | "OTHER";
+  amount: string;
+  note: string;
+  status: RequestStatus;
+  rejectionReason: string;
+};
+
+export type Offer = { id: number; title: string; details: string; startDate: string; endDate: string; isActive: boolean };
+
+export type ChatMessage = { id: number; sender: number; senderName: string; message: string; createdAt: string };
+
+export type Conversation = {
+  id: string;
+  name: string | null;
+  lastMessage: ChatMessage | null;
+  otherParticipant: Person | null;
 };

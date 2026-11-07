@@ -75,6 +75,7 @@ export default function AttendancePage() {
           <option value="WORKING">Working</option>
           <option value="COMPLETED">Finished</option>
           <option value="ABSENT">Absent</option>
+          <option value="ON_LEAVE">On leave</option>
         </Select>
       </div>
 

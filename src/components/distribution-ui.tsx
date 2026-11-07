@@ -58,6 +58,7 @@ const tones: Record<string, [string, string]> = {
   ISSUED: ["On the way", "bg-warn-soft text-warn"],
   RECEIVED: ["Received", "bg-ok-soft text-ok"],
   PENDING: ["Waiting", "bg-warn-soft text-warn"],
+  CANCELLED: ["Cancelled", "bg-off-soft text-ink-2"],
   CONFIRMED: ["Confirmed", "bg-ok-soft text-ok"],
   SUBMITTED: ["Submitted", "bg-warn-soft text-warn"],
   VERIFIED: ["Verified", "bg-brand-soft text-brand"],

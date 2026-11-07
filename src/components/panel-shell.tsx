@@ -1,7 +1,7 @@
 "use client";
 
 import clsx from "clsx";
-import { Banknote, BarChart3, Boxes, CalendarCheck, ClipboardList, Footprints, CalendarDays, Coins, Goal, HandCoins, LayoutGrid, LogOut, MapPinned, MoreHorizontal, Network, PackageCheck, PackageOpen, PackageX, Route, Scale, Settings2, SlidersHorizontal, Store, Truck, Users, Warehouse } from "lucide-react";
+import { Banknote, BarChart3, Boxes, CalendarCheck, ClipboardList, Footprints, CalendarDays, CalendarOff, Coins, Goal, HandCoins, MessagesSquare, Percent, ReceiptText, LayoutGrid, LogOut, MapPinned, MoreHorizontal, Network, PackageCheck, PackageOpen, PackageX, Route, Scale, Settings2, SlidersHorizontal, Store, Truck, Users, Warehouse } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -19,6 +19,12 @@ const nav = [
 export const fieldNav = [
   { href: "/field/orders", label: "Orders", icon: ClipboardList },
   { href: "/field/visits", label: "Visits", icon: Footprints },
+];
+
+export const teamNav = [
+  { href: "/team/messages", label: "Messages", icon: MessagesSquare },
+  { href: "/team/leave", label: "Leave", icon: CalendarOff },
+  { href: "/team/expenses", label: "Expenses", icon: ReceiptText },
 ];
 
 export const distributionNav = [
@@ -45,6 +51,7 @@ export const setupNav = [
   { href: "/setup/beats", label: "Beat plans", icon: Route },
   { href: "/setup/itinerary", label: "Itinerary", icon: CalendarDays },
   { href: "/setup/targets", label: "Targets", icon: Goal },
+  { href: "/setup/offers", label: "Offers", icon: Percent },
   { href: "/setup/field-rules", label: "Field rules", icon: SlidersHorizontal },
 ];
 
@@ -103,6 +110,10 @@ export function PanelShell({ children }: { children: React.ReactNode }) {
           {!operator && (
             <>
               {nav.map((item) => (
+                <SideLink key={item.href} {...item} active={isActive(item.href)} />
+              ))}
+              <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Team</p>
+              {teamNav.map((item) => (
                 <SideLink key={item.href} {...item} active={isActive(item.href)} />
               ))}
               <p className="px-3 pt-4 pb-1 text-xs font-semibold tracking-wide text-[#a9bdb8] uppercase">Field sales</p>
